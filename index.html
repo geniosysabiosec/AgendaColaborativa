@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -55,6 +56,7 @@
             font-size: 12px;
             z-index: 1000;
             font-weight: bold;
+            transition: all 0.3s;
         }
 
         .sync-status.saving {
@@ -63,6 +65,10 @@
 
         .sync-status.error {
             background: #ef4444;
+        }
+
+        .sync-status.offline {
+            background: #6b7280;
         }
 
         .content {
@@ -124,6 +130,11 @@
             transform: translateY(-2px);
         }
 
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .btn-danger {
             background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
         }
@@ -147,11 +158,6 @@
         .responsable-selector select {
             flex: 2;
             min-width: 200px;
-        }
-
-        .responsable-selector select option {
-            display: flex;
-            justify-content: space-between;
         }
 
         .responsables-tags {
@@ -281,32 +287,14 @@
             color: #dd6b20;
         }
 
-        .responsable-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 5px;
-        }
-
-        .delete-responsable-icon {
-            color: #f56565;
+        .retry-btn {
+            background: #dd6b20;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
-            margin-left: 8px;
-            padding: 2px 5px;
-            border-radius: 4px;
-        }
-
-        .delete-responsable-icon:hover {
-            background: #fee2e2;
-            color: #c53030;
-        }
-
-        .select-with-delete {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            width: 100%;
+            margin-top: 10px;
         }
 
         @media (max-width: 768px) {
@@ -327,13 +315,13 @@
 </head>
 <body>
     <div class="sync-status" id="syncStatus">
-        ✅ Conectado a Google Sheets
+        🔄 Conectando...
     </div>
 
     <div class="container">
         <div class="header">
             <h1>📚 Genios y Sabios</h1>
-            <p>✨ Agenda colaborativa </p>
+            <p>✨ Agenda colaborativa - Sincronización en tiempo real</p>
         </div>
         
         <div class="content">
@@ -389,7 +377,7 @@
                         <textarea id="descripcion" rows="3" placeholder="Detalles adicionales..."></textarea>
                     </div>
                     
-                    <button type="submit" class="btn">💾 Guardar Actividad</button>
+                    <button type="submit" class="btn" id="btnGuardar">💾 Guardar Actividad</button>
                 </form>
             </div>
             
@@ -403,6 +391,23 @@
                 <input type="text" id="searchInput" placeholder="🔍 Buscar por tema, responsable o fecha..." style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px;">
             </div>
             
+            <div id="loadingContainer" style="text-align: center; padding: 40px; display: none;">
+                <div class="loading">⏳ Cargando actividades...</div>
+            </div>
+            
+            <div class="agenda-table" id="tableContainer">
+                <table id="agendaTable" style="display: none;">
+                    <thead>
+                        <tr><th>Fecha</th><th>Hora</th><th>Día</th><th>Tema</th><th>Responsable(s)</th><th>Descripción</th><th>Acciones</th>……
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                ……
+                <div id="errorContainer" style="display: none; text-align: center; padding: 40px;">
+                    <div style="color: #ef4444; margin-bottom: 15px;">⚠️ Error de conexión con Google Sheets</div>
+                    <button id="btnReintentar" class="retry-btn">🔄 Reintentar conexión</button>
+                </div>
+            </div>
+            
             <div class="stats" id="stats">
                 📊 Total: 0 actividades
             </div>
@@ -412,7 +417,6 @@
     <script>
         (function() {
             // ==================== CONFIGURACIÓN GOOGLE SHEETS ====================
-            // ⚠️ IMPORTANTE: Reemplaza esta URL con la de tu Google Apps Script 
             const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16v0HQOhxtqXu2RZpyrNiIymyckIWEwuQZEJWDWv-75i8OVKh6dsvQCmHXoCtpEPD/exec';
             
             class AgendaGoogleSheets {
@@ -422,22 +426,81 @@
                     this.responsablesSeleccionados = [];
                     this.filtroActual = 'all';
                     this.busquedaActual = '';
+                    this.intervalId = null;
+                    this.isOnline = navigator.onLine;
                     this.init();
                 }
                 
                 async init() {
                     this.configurarEventos();
+                    this.monitorearConexion();
                     await this.cargarDatos();
-                    // Actualizar cada 10 segundos para ver cambios de otros dispositivos
-                    setInterval(() => this.cargarDatos(), 10000);
+                    
+                    // Actualizar cada 30 segundos (menos frecuente para no saturar)
+                    this.intervalId = setInterval(() => {
+                        if (navigator.onLine) {
+                            this.cargarDatos();
+                        }
+                    }, 30000);
+                }
+                
+                monitorearConexion() {
+                    window.addEventListener('online', () => {
+                        this.isOnline = true;
+                        this.actualizarEstadoConexion(true);
+                        this.cargarDatos();
+                        this.mostrarMensaje('🔄 Conexión recuperada. Sincronizando...', '#10b981');
+                    });
+                    
+                    window.addEventListener('offline', () => {
+                        this.isOnline = false;
+                        this.actualizarEstadoConexion(false);
+                        this.mostrarMensaje('⚠️ Sin conexión a internet. Los cambios se guardarán cuando vuelvas a conectarte.', '#f59e0b');
+                    });
+                }
+                
+                actualizarEstadoConexion(online) {
+                    const statusDiv = document.getElementById('syncStatus');
+                    if (online) {
+                        statusDiv.innerHTML = '✅ Conectado';
+                        statusDiv.style.background = '#10b981';
+                        statusDiv.classList.remove('offline', 'error');
+                    } else {
+                        statusDiv.innerHTML = '📡 Sin conexión';
+                        statusDiv.style.background = '#6b7280';
+                        statusDiv.classList.add('offline');
+                    }
                 }
                 
                 async cargarDatos() {
+                    if (!navigator.onLine) {
+                        this.actualizarEstadoConexion(false);
+                        this.mostrarError(true);
+                        return;
+                    }
+                    
+                    this.mostrarLoading(true);
+                    this.mostrarError(false);
+                    
                     try {
-                        document.getElementById('loadingMsg').style.display = 'block';
-                        document.getElementById('agendaTable').style.display = 'none';
+                        // Usar fetch normal (sin no-cors) para poder obtener respuestas
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos timeout
                         
-                        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=list`);
+                        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=list&t=${Date.now()}`, {
+                            method: 'GET',
+                            signal: controller.signal,
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
                         const data = await response.json();
                         
                         if (data.success) {
@@ -445,22 +508,40 @@
                             this.responsables = data.responsables || [];
                             this.renderizarTabla();
                             this.actualizarSelectResponsables();
-                            document.getElementById('syncStatus').innerHTML = '✅ Conectado';
-                            document.getElementById('syncStatus').style.background = '#10b981';
+                            this.actualizarEstadoConexion(true);
+                            this.mostrarError(false);
                         } else {
-                            throw new Error(data.error);
+                            throw new Error(data.error || 'Error en la respuesta');
                         }
                     } catch (error) {
-                        console.error('Error:', error);
-                        document.getElementById('syncStatus').innerHTML = '⚠️ Error de conexión';
-                        document.getElementById('syncStatus').style.background = '#ef4444';
+                        console.error('Error cargando datos:', error);
+                        this.actualizarEstadoConexion(false);
+                        this.mostrarError(true);
+                        
+                        // Si hay datos en caché, mostrarlos
+                        if (this.actividades.length === 0 && localStorage.getItem('actividades_cache')) {
+                            try {
+                                const cache = JSON.parse(localStorage.getItem('actividades_cache'));
+                                this.actividades = cache.actividades || [];
+                                this.responsables = cache.responsables || [];
+                                this.renderizarTabla();
+                                this.actualizarSelectResponsables();
+                                this.mostrarMensaje('📦 Mostrando datos en caché (sin conexión)', '#f59e0b');
+                            } catch(e) {}
+                        }
                     } finally {
-                        document.getElementById('loadingMsg').style.display = 'none';
-                        document.getElementById('agendaTable').style.display = 'table';
+                        this.mostrarLoading(false);
                     }
                 }
                 
                 async guardarActividad(actividad) {
+                    if (!navigator.onLine) {
+                        this.mostrarMensaje('⚠️ Sin conexión. Guardando localmente...', '#f59e0b');
+                        // Guardar en caché local para reintentar después
+                        this.guardarEnCache(actividad, 'add');
+                        return false;
+                    }
+                    
                     try {
                         const formData = new URLSearchParams();
                         formData.append('action', 'add');
@@ -471,46 +552,93 @@
                         formData.append('responsables', JSON.stringify(actividad.responsables));
                         formData.append('descripcion', actividad.descripcion || '');
                         
-                        await fetch(GOOGLE_SCRIPT_URL, {
+                        const response = await fetch(GOOGLE_SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            headers: { 
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'Accept': 'application/json'
+                            },
                             body: formData
                         });
                         
-                        this.mostrarMensaje('✅ Actividad guardada en Google Sheets', '#10b981');
-                        setTimeout(() => this.cargarDatos(), 1000);
-                        return true;
+                        if (response.ok) {
+                            this.mostrarMensaje('✅ Actividad guardada en Google Sheets', '#10b981');
+                            setTimeout(() => this.cargarDatos(), 1000);
+                            return true;
+                        } else {
+                            throw new Error('Error en el servidor');
+                        }
                     } catch (error) {
-                        this.mostrarMensaje('❌ Error al guardar', '#ef4444');
+                        console.error('Error:', error);
+                        this.mostrarMensaje('❌ Error al guardar. Reintentando...', '#ef4444');
+                        // Guardar en caché para reintentar
+                        this.guardarEnCache(actividad, 'add');
                         return false;
                     }
                 }
                 
+                guardarEnCache(actividad, action) {
+                    let pending = JSON.parse(localStorage.getItem('pending_actions') || '[]');
+                    pending.push({
+                        action: action,
+                        data: actividad,
+                        timestamp: Date.now()
+                    });
+                    localStorage.setItem('pending_actions', JSON.stringify(pending));
+                    this.mostrarMensaje('💾 Actividad guardada localmente. Se sincronizará cuando haya conexión.', '#f59e0b');
+                }
+                
+                async sincronizarPendientes() {
+                    if (!navigator.onLine) return;
+                    
+                    const pending = JSON.parse(localStorage.getItem('pending_actions') || '[]');
+                    if (pending.length === 0) return;
+                    
+                    this.mostrarMensaje(`🔄 Sincronizando ${pending.length} actividad(es) pendiente(s)...`, '#f59e0b');
+                    
+                    for (const item of pending) {
+                        if (item.action === 'add') {
+                            await this.guardarActividad(item.data);
+                        }
+                    }
+                    
+                    localStorage.removeItem('pending_actions');
+                    this.cargarDatos();
+                }
+                
                 async eliminarActividad(id) {
                     if (!confirm('¿Eliminar esta actividad?')) return;
+                    
+                    if (!navigator.onLine) {
+                        this.mostrarMensaje('⚠️ Sin conexión. La eliminación se completará cuando vuelvas a conectarte.', '#f59e0b');
+                        return;
+                    }
                     
                     try {
                         const formData = new URLSearchParams();
                         formData.append('action', 'delete');
                         formData.append('id', id);
                         
-                        await fetch(GOOGLE_SCRIPT_URL, {
+                        const response = await fetch(GOOGLE_SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                             body: formData
                         });
                         
-                        this.mostrarMensaje('🗑️ Actividad eliminada', '#ef4444');
-                        setTimeout(() => this.cargarDatos(), 1000);
+                        if (response.ok) {
+                            this.mostrarMensaje('🗑️ Actividad eliminada', '#ef4444');
+                            setTimeout(() => this.cargarDatos(), 1000);
+                        }
                     } catch (error) {
                         this.mostrarMensaje('❌ Error al eliminar', '#ef4444');
                     }
                 }
                 
                 async eliminarResponsable(nombre) {
-                    if (!confirm(`¿Eliminar a "${nombre}" de la lista de responsables?`)) {
+                    if (!confirm(`¿Eliminar a "${nombre}" de la lista de responsables?`)) return;
+                    
+                    if (!navigator.onLine) {
+                        this.mostrarMensaje('⚠️ Sin conexión. Intenta nuevamente cuando tengas internet.', '#f59e0b');
                         return;
                     }
                     
@@ -519,15 +647,16 @@
                         formData.append('action', 'deleteResponsable');
                         formData.append('nombre', nombre);
                         
-                        await fetch(GOOGLE_SCRIPT_URL, {
+                        const response = await fetch(GOOGLE_SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                             body: formData
                         });
                         
-                        this.mostrarMensaje(`✅ "${nombre}" eliminado de la lista de responsables`, '#10b981');
-                        setTimeout(() => this.cargarDatos(), 1000);
+                        if (response.ok) {
+                            this.mostrarMensaje(`✅ "${nombre}" eliminado`, '#10b981');
+                            setTimeout(() => this.cargarDatos(), 1000);
+                        }
                     } catch (error) {
                         this.mostrarMensaje('❌ Error al eliminar responsable', '#ef4444');
                     }
@@ -555,7 +684,12 @@
                     }
                     
                     if (this.responsables.includes(nombre)) {
-                        this.mostrarMensaje(`⚠️ "${nombre}" ya existe en la lista`, '#f59e0b');
+                        this.mostrarMensaje(`⚠️ "${nombre}" ya existe`, '#f59e0b');
+                        return false;
+                    }
+                    
+                    if (!navigator.onLine) {
+                        this.mostrarMensaje('⚠️ Sin conexión. Intenta nuevamente cuando tengas internet.', '#f59e0b');
                         return false;
                     }
                     
@@ -564,18 +698,19 @@
                         formData.append('action', 'addResponsable');
                         formData.append('nombre', nombre);
                         
-                        await fetch(GOOGLE_SCRIPT_URL, {
+                        const response = await fetch(GOOGLE_SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                             body: formData
                         });
                         
-                        this.mostrarMensaje(`✅ "${nombre}" agregado a la lista de responsables`, '#10b981');
-                        setTimeout(() => this.cargarDatos(), 1000);
-                        return true;
+                        if (response.ok) {
+                            this.mostrarMensaje(`✅ "${nombre}" agregado`, '#10b981');
+                            setTimeout(() => this.cargarDatos(), 1000);
+                            return true;
+                        }
                     } catch (error) {
-                        this.mostrarMensaje('❌ Error al agregar responsable', '#ef4444');
+                        this.mostrarMensaje('❌ Error al agregar', '#ef4444');
                         return false;
                     }
                 }
@@ -619,7 +754,7 @@
                     const filtradas = this.filtrarActividades();
                     
                     if (filtradas.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">📭 No hay actividades</td></tr>';
+                        tbody.innerHTML = '发展<td colspan="7" style="text-align:center;padding:40px;">📭 No hay actividades发展</td> </tr>';
                         return;
                     }
                     
@@ -638,7 +773,9 @@
                         </tr>
                     `).join('');
                     
-                    document.getElementById('stats').innerHTML = `📊 Total: ${filtradas.length} actividades | 👥 ${this.responsables.length} responsables registrados | 📡 Datos en Google Sheets`;
+                    const pending = JSON.parse(localStorage.getItem('pending_actions') || '[]').length;
+                    const statusText = pending > 0 ? ` | 📦 ${pending} pendiente(s) de sincronizar` : '';
+                    document.getElementById('stats').innerHTML = `📊 Total: ${filtradas.length} actividades | 👥 ${this.responsables.length} responsables registrados${statusText}`;
                 }
                 
                 formatearFecha(fecha) {
@@ -652,9 +789,32 @@
                 mostrarMensaje(texto, color) {
                     const msg = document.createElement('div');
                     msg.textContent = texto;
-                    msg.style.cssText = `position:fixed;top:80px;right:20px;background:${color};color:white;padding:12px 20px;border-radius:8px;z-index:3000;animation:slideIn 0.3s;`;
+                    msg.style.cssText = `position:fixed;bottom:20px;right:20px;background:${color};color:white;padding:12px 20px;border-radius:8px;z-index:3000;animation:slideIn 0.3s;box-shadow:0 2px 10px rgba(0,0,0,0.2);`;
                     document.body.appendChild(msg);
-                    setTimeout(() => msg.remove(), 3000);
+                    setTimeout(() => msg.remove(), 4000);
+                }
+                
+                mostrarLoading(mostrar) {
+                    const loadingDiv = document.getElementById('loadingContainer');
+                    const table = document.getElementById('agendaTable');
+                    if (mostrar) {
+                        loadingDiv.style.display = 'block';
+                        table.style.display = 'none';
+                    } else {
+                        loadingDiv.style.display = 'none';
+                        table.style.display = 'table';
+                    }
+                }
+                
+                mostrarError(mostrar) {
+                    const errorDiv = document.getElementById('errorContainer');
+                    const table = document.getElementById('agendaTable');
+                    if (mostrar && this.actividades.length === 0) {
+                        errorDiv.style.display = 'block';
+                        table.style.display = 'none';
+                    } else {
+                        errorDiv.style.display = 'none';
+                    }
                 }
                 
                 actualizarSelectResponsables() {
@@ -678,7 +838,7 @@
                         this.actualizarTagsResponsables();
                         select.value = '';
                     } else {
-                        this.mostrarMensaje(`⚠️ "${responsable}" ya está agregado a esta actividad`, '#f59e0b');
+                        this.mostrarMensaje(`⚠️ "${responsable}" ya está agregado`, '#f59e0b');
                     }
                 }
                 
@@ -717,7 +877,7 @@
                         const descripcion = document.getElementById('descripcion').value;
                         
                         if (!fecha || !hora || !dia || !tema) return this.mostrarMensaje('⚠️ Complete todos los campos', '#f59e0b');
-                        if (this.responsablesSeleccionados.length === 0) return this.mostrarMensaje('⚠️ Seleccione al menos un responsable para esta actividad', '#f59e0b');
+                        if (this.responsablesSeleccionados.length === 0) return this.mostrarMensaje('⚠️ Seleccione al menos un responsable', '#f59e0b');
                         
                         await this.guardarActividad({ 
                             fecha, hora, dia, tema, 
@@ -742,14 +902,16 @@
                     });
                     
                     document.getElementById('btnAgregarResponsable').onclick = () => this.agregarResponsableATag();
-                    
-                    // Botón nuevo responsable rápido
                     document.getElementById('btnNuevoResponsable').onclick = () => {
                         const nombre = prompt('Ingresa el nombre del nuevo responsable:');
                         if (nombre && nombre.trim()) {
                             this.agregarResponsable(nombre.trim());
                         }
                     };
+                    
+                    document.getElementById('btnReintentar')?.addEventListener('click', () => {
+                        this.cargarDatos();
+                    });
                 }
                 
                 escapeHTML(str) {
