@@ -321,7 +321,7 @@
     <div class="container">
         <div class="header">
             <h1>📚 Genios y Sabios</h1>
-            <p>✨ Agenda colaborativa - Sincronización en tiempo real</p>
+            <p>✨ Agenda colaborativa</p>
         </div>
         
         <div class="content">
@@ -754,7 +754,7 @@
                     const filtradas = this.filtrarActividades();
                     
                     if (filtradas.length === 0) {
-                        tbody.innerHTML = '发展<td colspan="7" style="text-align:center;padding:40px;">📭 No hay actividades</td> </tr>';
+                        tbody.innerHTML = '<td colspan="7" style="text-align:center;padding:40px;">📭 No hay actividades</td> </tr>';
                         return;
                     }
                     
@@ -775,7 +775,7 @@
                     
                     const pending = JSON.parse(localStorage.getItem('pending_actions') || '[]').length;
                     const statusText = pending > 0 ? ` | 📦 ${pending} pendiente(s) de sincronizar` : '';
-                    document.getElementById('stats').innerHTML = `📊 Total: ${filtradas.length} actividades | 👥 ${this.responsables.length} responsables registrados${statusText}`;
+                    document.getElementById('stats').innerHTML = `📊 Total: ${filtradas.length} actividades`;
                 }
                 
                 formatearFecha(fecha) {
