@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Genios y Sabios - Agenda Colaborativa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #debd9d 0%, #e07614 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #debd9d 0%, #e07614 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .sync-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            font-weight: bold;
+        }
+
+        .sync-status.saving {
+            background: #f59e0b;
+        }
+
+        .sync-status.error {
+            background: #ef4444;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-section h2 {
+            color: #dd6b20;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ad833c 0%, #c07a02 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .btn-small {
+            padding: 5px 12px;
+            font-size: 12px;
+        }
+
+        .responsable-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .responsable-selector select {
+            flex: 2;
+            min-width: 200px;
+        }
+
+        .responsable-selector select option {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .responsables-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .responsable-tag {
+            background: linear-gradient(135deg, #ad833c 0%, #c07a02 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .responsable-tag .remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .search-section {
+            margin-bottom: 20px;
+        }
+
+        .agenda-table {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: linear-gradient(135deg, #ad833c 0%, #c07a02 100%);
+            color: white;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: 600;
+            color: #dd6b20;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: #e2e8f0;
+            cursor: pointer;
+        }
+
+        .filter-btn.active {
+            background: #dd6b20;
+            color: white;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .resp-badge {
+            background: #e0e7ff;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #dd6b20;
+            display: inline-block;
+            margin: 2px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #dd6b20;
+        }
+
+        .responsable-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+        }
+
+        .delete-responsable-icon {
+            color: #f56565;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .delete-responsable-icon:hover {
+            background: #fee2e2;
+            color: #c53030;
+        }
+
+        .select-with-delete {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .header h1 {
+                font-size: 1.8em;
+            }
+            .action-buttons {
+                flex-direction: column;
+            }
+            .btn-small {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sync-status" id="syncStatus">
+        ✅ Conectado a Google Sheets
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>📚 Genios y Sabios</h1>
+            <p>✨ Agenda colaborativa </p>
+        </div>
+        
+        <div class="content">
+            <div class="form-section">
+                <h2>➕ Agregar Nueva Actividad</h2>
+                <form id="agendaForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>📅 Fecha</label>
+                            <input type="date" id="fecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label>⏰ Hora</label>
+                            <input type="time" id="hora" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>📆 Día</label>
+                            <select id="dia" required>
+                                <option value="">Seleccione</option>
+                                <option value="Lunes">Lunes</option>
+                                <option value="Martes">Martes</option>
+                                <option value="Miércoles">Miércoles</option>
+                                <option value="Jueves">Jueves</option>
+                                <option value="Viernes">Viernes</option>
+                                <option value="Sábado">Sábado</option>
+                                <option value="Domingo">Domingo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>📖 Tema</label>
+                            <input type="text" id="tema" placeholder="Título del tema" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>👥 Responsable(s) de la actividad</label>
+                        <div class="responsable-selector">
+                            <select id="responsableSelect">
+                                <option value="">Seleccione un responsable</option>
+                            </select>
+                            <button type="button" class="btn-small" id="btnNuevoResponsable" style="background: #48bb78; color: white;">➕ Crear Nuevo</button>
+                            <button type="button" class="btn-small" id="btnAgregarResponsable" style="background: #3b82f6; color: white;">➕ Agregar a actividad</button>
+                        </div>
+                        <div id="responsablesTags" class="responsables-tags"></div>
+                        <small style="color: #666;">Selecciona uno o varios responsables para esta actividad</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>📝 Descripción</label>
+                        <textarea id="descripcion" rows="3" placeholder="Detalles adicionales..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn">💾 Guardar Actividad</button>
+                </form>
+            </div>
+            
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">📋 Todas</button>
+                <button class="filter-btn" data-filter="today">📅 Hoy</button>
+                <button class="filter-btn" data-filter="week">📆 Esta semana</button>
+            </div>
+            
+            <div class="search-section">
+                <input type="text" id="searchInput" placeholder="🔍 Buscar por tema, responsable o fecha..." style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px;">
+            </div>
+            
+            <div class="stats" id="stats">
+                📊 Total: 0 actividades
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== CONFIGURACIÓN GOOGLE SHEETS ====================
+            // ⚠️ IMPORTANTE: Reemplaza esta URL con la de tu Google Apps Script 
+            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16v0HQOhxtqXu2RZpyrNiIymyckIWEwuQZEJWDWv-75i8OVKh6dsvQCmHXoCtpEPD/exec';
+            
+            class AgendaGoogleSheets {
+                constructor() {
+                    this.actividades = [];
+                    this.responsables = [];
+                    this.responsablesSeleccionados = [];
+                    this.filtroActual = 'all';
+                    this.busquedaActual = '';
+                    this.init();
+                }
+                
+                async init() {
+                    this.configurarEventos();
+                    await this.cargarDatos();
+                    // Actualizar cada 10 segundos para ver cambios de otros dispositivos
+                    setInterval(() => this.cargarDatos(), 10000);
+                }
+                
+                async cargarDatos() {
+                    try {
+                        document.getElementById('loadingMsg').style.display = 'block';
+                        document.getElementById('agendaTable').style.display = 'none';
+                        
+                        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=list`);
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            this.actividades = data.actividades || [];
+                            this.responsables = data.responsables || [];
+                            this.renderizarTabla();
+                            this.actualizarSelectResponsables();
+                            document.getElementById('syncStatus').innerHTML = '✅ Conectado';
+                            document.getElementById('syncStatus').style.background = '#10b981';
+                        } else {
+                            throw new Error(data.error);
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        document.getElementById('syncStatus').innerHTML = '⚠️ Error de conexión';
+                        document.getElementById('syncStatus').style.background = '#ef4444';
+                    } finally {
+                        document.getElementById('loadingMsg').style.display = 'none';
+                        document.getElementById('agendaTable').style.display = 'table';
+                    }
+                }
+                
+                async guardarActividad(actividad) {
+                    try {
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'add');
+                        formData.append('fecha', actividad.fecha);
+                        formData.append('hora', actividad.hora);
+                        formData.append('dia', actividad.dia);
+                        formData.append('tema', actividad.tema);
+                        formData.append('responsables', JSON.stringify(actividad.responsables));
+                        formData.append('descripcion', actividad.descripcion || '');
+                        
+                        await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: formData
+                        });
+                        
+                        this.mostrarMensaje('✅ Actividad guardada en Google Sheets', '#10b981');
+                        setTimeout(() => this.cargarDatos(), 1000);
+                        return true;
+                    } catch (error) {
+                        this.mostrarMensaje('❌ Error al guardar', '#ef4444');
+                        return false;
+                    }
+                }
+                
+                async eliminarActividad(id) {
+                    if (!confirm('¿Eliminar esta actividad?')) return;
+                    
+                    try {
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'delete');
+                        formData.append('id', id);
+                        
+                        await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: formData
+                        });
+                        
+                        this.mostrarMensaje('🗑️ Actividad eliminada', '#ef4444');
+                        setTimeout(() => this.cargarDatos(), 1000);
+                    } catch (error) {
+                        this.mostrarMensaje('❌ Error al eliminar', '#ef4444');
+                    }
+                }
+                
+                async eliminarResponsable(nombre) {
+                    if (!confirm(`¿Eliminar a "${nombre}" de la lista de responsables?`)) {
+                        return;
+                    }
+                    
+                    try {
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'deleteResponsable');
+                        formData.append('nombre', nombre);
+                        
+                        await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: formData
+                        });
+                        
+                        this.mostrarMensaje(`✅ "${nombre}" eliminado de la lista de responsables`, '#10b981');
+                        setTimeout(() => this.cargarDatos(), 1000);
+                    } catch (error) {
+                        this.mostrarMensaje('❌ Error al eliminar responsable', '#ef4444');
+                    }
+                }
+                
+                editarActividad(id) {
+                    const actividad = this.actividades.find(a => a.id == id);
+                    if (actividad) {
+                        document.getElementById('fecha').value = actividad.fecha;
+                        document.getElementById('hora').value = actividad.hora;
+                        document.getElementById('dia').value = actividad.dia;
+                        document.getElementById('tema').value = actividad.tema;
+                        document.getElementById('descripcion').value = actividad.descripcion || '';
+                        this.responsablesSeleccionados = [...actividad.responsables];
+                        this.actualizarTagsResponsables();
+                        this.eliminarActividad(id);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }
+                
+                async agregarResponsable(nombre) {
+                    if (!nombre) {
+                        this.mostrarMensaje('⚠️ Por favor ingresa un nombre', '#f59e0b');
+                        return false;
+                    }
+                    
+                    if (this.responsables.includes(nombre)) {
+                        this.mostrarMensaje(`⚠️ "${nombre}" ya existe en la lista`, '#f59e0b');
+                        return false;
+                    }
+                    
+                    try {
+                        const formData = new URLSearchParams();
+                        formData.append('action', 'addResponsable');
+                        formData.append('nombre', nombre);
+                        
+                        await fetch(GOOGLE_SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: formData
+                        });
+                        
+                        this.mostrarMensaje(`✅ "${nombre}" agregado a la lista de responsables`, '#10b981');
+                        setTimeout(() => this.cargarDatos(), 1000);
+                        return true;
+                    } catch (error) {
+                        this.mostrarMensaje('❌ Error al agregar responsable', '#ef4444');
+                        return false;
+                    }
+                }
+                
+                filtrarActividades() {
+                    let actividades = [...this.actividades];
+                    const hoy = new Date();
+                    hoy.setHours(0, 0, 0, 0);
+                    
+                    if (this.filtroActual === 'today') {
+                        actividades = actividades.filter(a => {
+                            const fechaAct = new Date(a.fecha);
+                            fechaAct.setHours(0, 0, 0, 0);
+                            return fechaAct.getTime() === hoy.getTime();
+                        });
+                    } else if (this.filtroActual === 'week') {
+                        const inicioSemana = new Date(hoy);
+                        inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+                        const finSemana = new Date(inicioSemana);
+                        finSemana.setDate(inicioSemana.getDate() + 6);
+                        actividades = actividades.filter(a => {
+                            const fechaAct = new Date(a.fecha);
+                            return fechaAct >= inicioSemana && fechaAct <= finSemana;
+                        });
+                    }
+                    
+                    if (this.busquedaActual) {
+                        const termino = this.busquedaActual.toLowerCase();
+                        actividades = actividades.filter(a => 
+                            a.tema.toLowerCase().includes(termino) ||
+                            (a.responsables && a.responsables.some(r => r.toLowerCase().includes(termino))) ||
+                            a.fecha.includes(termino)
+                        );
+                    }
+                    
+                    return actividades;
+                }
+                
+                renderizarTabla() {
+                    const tbody = document.getElementById('tableBody');
+                    const filtradas = this.filtrarActividades();
+                    
+                    if (filtradas.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">📭 No hay actividades</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = filtradas.map(act => `
+                        <tr>
+                            <td>${this.formatearFecha(act.fecha)}</td>
+                            <td>${act.hora}</td>
+                            <td>${act.dia}</td>
+                            <td><strong>${this.escapeHTML(act.tema)}</strong></td>
+                            <td>${act.responsables ? act.responsables.map(r => `<span class="resp-badge">👤 ${this.escapeHTML(r)}</span>`).join('') : '-'}</td>
+                            <td>${act.descripcion ? this.escapeHTML(act.descripcion.substring(0, 50)) : '-'}</td>
+                            <td class="action-buttons">
+                                <button class="btn-small" onclick="agenda.editarActividad(${act.id})" style="background:#ed8936;color:white;">✏️ Editar</button>
+                                <button class="btn-small" onclick="agenda.eliminarActividad(${act.id})" style="background:#f56565;color:white;">🗑️ Eliminar</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                    
+                    document.getElementById('stats').innerHTML = `📊 Total: ${filtradas.length} actividades | 👥 ${this.responsables.length} responsables registrados | 📡 Datos en Google Sheets`;
+                }
+                
+                formatearFecha(fecha) {
+                    try {
+                        return new Date(fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+                    } catch {
+                        return fecha;
+                    }
+                }
+                
+                mostrarMensaje(texto, color) {
+                    const msg = document.createElement('div');
+                    msg.textContent = texto;
+                    msg.style.cssText = `position:fixed;top:80px;right:20px;background:${color};color:white;padding:12px 20px;border-radius:8px;z-index:3000;animation:slideIn 0.3s;`;
+                    document.body.appendChild(msg);
+                    setTimeout(() => msg.remove(), 3000);
+                }
+                
+                actualizarSelectResponsables() {
+                    const select = document.getElementById('responsableSelect');
+                    select.innerHTML = '<option value="">Seleccione un responsable</option>';
+                    
+                    this.responsables.forEach(r => {
+                        const option = document.createElement('option');
+                        option.value = r;
+                        option.textContent = r;
+                        select.appendChild(option);
+                    });
+                }
+                
+                agregarResponsableATag() {
+                    const select = document.getElementById('responsableSelect');
+                    const responsable = select.value;
+                    if (!responsable) return this.mostrarMensaje('⚠️ Seleccione un responsable', '#f59e0b');
+                    if (!this.responsablesSeleccionados.includes(responsable)) {
+                        this.responsablesSeleccionados.push(responsable);
+                        this.actualizarTagsResponsables();
+                        select.value = '';
+                    } else {
+                        this.mostrarMensaje(`⚠️ "${responsable}" ya está agregado a esta actividad`, '#f59e0b');
+                    }
+                }
+                
+                eliminarResponsableTag(responsable) {
+                    this.responsablesSeleccionados = this.responsablesSeleccionados.filter(r => r !== responsable);
+                    this.actualizarTagsResponsables();
+                }
+                
+                actualizarTagsResponsables() {
+                    const container = document.getElementById('responsablesTags');
+                    if (this.responsablesSeleccionados.length === 0) {
+                        container.innerHTML = '<small style="color:#999;">No hay responsables seleccionados para esta actividad</small>';
+                        return;
+                    }
+                    container.innerHTML = this.responsablesSeleccionados.map(r => `
+                        <div class="responsable-tag">
+                            👤 ${this.escapeHTML(r)}
+                            <span class="remove" onclick="agenda.eliminarResponsableTag('${r.replace(/'/g, "\\'")}')">✖</span>
+                        </div>
+                    `).join('');
+                }
+                
+                limpiarFormulario() {
+                    document.getElementById('agendaForm').reset();
+                    this.responsablesSeleccionados = [];
+                    this.actualizarTagsResponsables();
+                }
+                
+                configurarEventos() {
+                    document.getElementById('agendaForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const fecha = document.getElementById('fecha').value;
+                        const hora = document.getElementById('hora').value;
+                        const dia = document.getElementById('dia').value;
+                        const tema = document.getElementById('tema').value;
+                        const descripcion = document.getElementById('descripcion').value;
+                        
+                        if (!fecha || !hora || !dia || !tema) return this.mostrarMensaje('⚠️ Complete todos los campos', '#f59e0b');
+                        if (this.responsablesSeleccionados.length === 0) return this.mostrarMensaje('⚠️ Seleccione al menos un responsable para esta actividad', '#f59e0b');
+                        
+                        await this.guardarActividad({ 
+                            fecha, hora, dia, tema, 
+                            responsables: [...this.responsablesSeleccionados], 
+                            descripcion 
+                        });
+                        this.limpiarFormulario();
+                    });
+                    
+                    document.getElementById('searchInput').addEventListener('input', (e) => {
+                        this.busquedaActual = e.target.value;
+                        this.renderizarTabla();
+                    });
+                    
+                    document.querySelectorAll('.filter-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            this.filtroActual = btn.dataset.filter;
+                            this.renderizarTabla();
+                        });
+                    });
+                    
+                    document.getElementById('btnAgregarResponsable').onclick = () => this.agregarResponsableATag();
+                    
+                    // Botón nuevo responsable rápido
+                    document.getElementById('btnNuevoResponsable').onclick = () => {
+                        const nombre = prompt('Ingresa el nombre del nuevo responsable:');
+                        if (nombre && nombre.trim()) {
+                            this.agregarResponsable(nombre.trim());
+                        }
+                    };
+                }
+                
+                escapeHTML(str) {
+                    if (!str) return '';
+                    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+                }
+            }
+            
+            window.agenda = new AgendaGoogleSheets();
+            
+            const style = document.createElement('style');
+            style.textContent = `@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}`;
+            document.head.appendChild(style);
+        })();
+    </script>
+</body>
+</html>
